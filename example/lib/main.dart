@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart';
 import 'package:photofilters/photofilters.dart';
@@ -25,7 +26,8 @@ class _MyAppState extends State<MyApp> {
     if(pickedFile!=null){
     imageFile = new File(pickedFile.path);
     fileName = basename(imageFile.path);
-    var image = imageLib.decodeImage(await imageFile.readAsBytes());
+
+    var image = await compute(getImageFromFile,imageFile);
     // image = imageLib.copyResize(image, width: 600);
     Map imagefile = await Navigator.push(
       context,
@@ -71,3 +73,11 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+
+
+///The global buildThumbnail function
+FutureOr<imageLib.Image> getImageFromFile(File file) async {
+  var uint8list = await file.readAsBytes();
+  return imageLib.decodeImage(uint8list);
+}
+
