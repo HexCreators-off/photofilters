@@ -26,7 +26,7 @@ class _MyAppState extends State<MyApp> {
     imageFile = new File(pickedFile.path);
     fileName = basename(imageFile.path);
     var image = imageLib.decodeImage(await imageFile.readAsBytes());
-    image = imageLib.copyResize(image, width: 600);
+    // image = imageLib.copyResize(image, width: 600);
     Map imagefile = await Navigator.push(
       context,
       new MaterialPageRoute(
@@ -59,10 +59,8 @@ class _MyAppState extends State<MyApp> {
       body: Center(
         child: new Container(
           child: imageFile == null
-              ? Center(
-                  child: new Text('No image selected.'),
-                )
-              : Image.file(new File(imageFile.path)),
+              ? new Text('No image selected.')
+              : InteractiveViewer(child: Image.file(new File(imageFile.path))),
         ),
       ),
       floatingActionButton: new FloatingActionButton(

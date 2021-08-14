@@ -82,9 +82,13 @@ class PhotoFilterSelector extends StatefulWidget {
 class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
   String? filename;
   Map<String, List<int>?> cachedFilters = {};
+  Map<String, List<int>?> previewCachedFilters = {};
   Filter? _filter;
-  imageLib.Image? image;
+  imageLib.Image? sourceImage;
   late bool loading;
+  late imageLib.Image thumbImage;
+  late imageLib.Image previewImage;
+
 
   @override
   void initState() {
@@ -92,7 +96,11 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
     loading = false;
     _filter = widget.filters[0];
     filename = widget.filename;
-    image = widget.image;
+    sourceImage = widget.image;
+    thumbImage = widget.image;
+    previewImage = widget.image;
+
+    processImage();
   }
 
   @override
@@ -139,7 +147,7 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
                         padding: EdgeInsets.all(12.0),
                         child: _buildFilteredImage(
                           _filter,
-                          image,
+                          previewImage,
                           filename,
                         ),
                       ),
@@ -158,7 +166,7 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: <Widget>[
                                     _buildFilterThumbnail(
-                                        widget.filters[index], image, filename),
+                                        widget.filters[index], thumbImage, filename),
                                     SizedBox(
                                       height: 5.0,
                                     ),
@@ -245,13 +253,22 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
 
   Future<File> saveFilteredImage() async {
     var imageFile = await _localFile;
-    await imageFile.writeAsBytes(cachedFilters[_filter?.name ?? "_"]!);
+    //
+
+    var filterSourceImage = await compute(
+        applyFilter ,
+        <String, dynamic>{
+          "filter": _filter,
+          "image": sourceImage,
+          "filename": filename,
+        });
+    await imageFile.writeAsBytes(filterSourceImage);
     return imageFile;
   }
 
   Widget _buildFilteredImage(
       Filter? filter, imageLib.Image? image, String? filename) {
-    if (cachedFilters[filter?.name ?? "_"] == null) {
+    if (previewCachedFilters[filter?.name ?? "_"] == null) {
       return FutureBuilder<List<int>>(
         future: compute(
             applyFilter,
@@ -270,7 +287,7 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
             case ConnectionState.done:
               if (snapshot.hasError)
                 return Center(child: Text('Error: ${snapshot.error}'));
-              cachedFilters[filter?.name ?? "_"] = snapshot.data;
+              previewCachedFilters[filter?.name ?? "_"] = snapshot.data;
               return widget.circleShape
                   ? SizedBox(
                       height: MediaQuery.of(context).size.width / 3,
@@ -301,16 +318,56 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
                 child: CircleAvatar(
                   radius: MediaQuery.of(context).size.width / 3,
                   backgroundImage: MemoryImage(
-                    cachedFilters[filter?.name ?? "_"] as dynamic,
+                    previewCachedFilters[filter?.name ?? "_"] as dynamic,
                   ),
                 ),
               ),
             )
           : Image.memory(
-              cachedFilters[filter?.name ?? "_"] as dynamic,
+              previewCachedFilters[filter?.name ?? "_"] as dynamic,
               fit: widget.fit,
             );
     }
+  }
+
+  void processImage() async {
+
+    var thumbImage = await compute(
+        reduceSize ,
+        <String, dynamic>{
+          "width": 200,
+          "height": 200,
+          "image": sourceImage,
+          "filename": filename,
+        });
+    
+    var previewImageHeight = 0;
+    var previewImageWidth = 0;
+    
+    if(sourceImage!.height > MediaQuery.of(context).size.height){
+      previewImageHeight = bringToValue(sourceImage!.height, MediaQuery.of(context).size.height).toInt();
+    }
+    
+    if(sourceImage!.width > MediaQuery.of(context).size.width){
+      previewImageWidth = bringToValue(sourceImage!.width, MediaQuery.of(context).size.width).toInt();
+    }
+    
+    var previewImage = await compute(
+        reduceSize ,
+        <String, dynamic>{
+          "width": previewImageWidth,
+          "height": previewImageHeight,
+          "image": sourceImage,
+          "filename": filename,
+        });
+
+    setState(() {
+
+      this.thumbImage = thumbImage;
+      this.previewImage = previewImage;
+
+    });
+
   }
 }
 
@@ -335,4 +392,19 @@ FutureOr<List<int>> buildThumbnail(Map<String, dynamic> params) {
   int? width = params["width"];
   params["image"] = imageLib.copyResize(params["image"], width: width);
   return applyFilter(params);
+}
+
+///The global buildThumbnail function
+FutureOr<imageLib.Image> reduceSize(Map<String, dynamic> params) {
+  int? width = params["width"];
+  int? height = params["height"];
+  return imageLib.copyResize(params["image"], width: width,height: height);
+}
+
+num bringToValue(num givenSize,num maxSize){
+  givenSize = givenSize / 1.5;
+  if(givenSize > maxSize)
+    return bringToValue(givenSize, maxSize);
+  else
+  return givenSize ;
 }
