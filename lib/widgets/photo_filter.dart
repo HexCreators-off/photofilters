@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-
+import 'dart:math' as Math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as imageLib;
@@ -332,31 +332,26 @@ class _PhotoFilterSelectorState extends State<PhotoFilterSelector> {
 
   void processImage() async {
 
+    num thumbRatio = getRatio(200, 200 ,sourceImage!.height ,sourceImage!.width);
+
     var thumbImage = await compute(
         reduceSize ,
         <String, dynamic>{
-          "width": 200,
-          "height": 200,
+          "width": (sourceImage!.width * thumbRatio).toInt(),
+          "height": (sourceImage!.height * thumbRatio).toInt(),
           "image": sourceImage,
           "filename": filename,
         });
-    
-    var previewImageHeight = 0;
-    var previewImageWidth = 0;
-    
-    if(sourceImage!.height > MediaQuery.of(context).size.height){
-      previewImageHeight = bringToValue(sourceImage!.height, MediaQuery.of(context).size.height).toInt();
-    }
-    
-    if(sourceImage!.width > MediaQuery.of(context).size.width){
-      previewImageWidth = bringToValue(sourceImage!.width, MediaQuery.of(context).size.width).toInt();
-    }
-    
+
+    num previewRatio = getRatio(MediaQuery.of(context).size.height, MediaQuery.of(context).size.width ,sourceImage!.height ,sourceImage!.width);//Math.min(MediaQuery.of(context).size.width /sourceImage!.width , MediaQuery.of(context).size.height /sourceImage!.height);
+
+    previewRatio = previewRatio *2;
+
     var previewImage = await compute(
         reduceSize ,
         <String, dynamic>{
-          "width": previewImageWidth,
-          "height": previewImageHeight,
+          "width": (previewRatio * sourceImage!.width).toInt(),
+          "height": (previewRatio * sourceImage!.height).toInt(),
           "image": sourceImage,
           "filename": filename,
         });
@@ -401,10 +396,6 @@ FutureOr<imageLib.Image> reduceSize(Map<String, dynamic> params) {
   return imageLib.copyResize(params["image"], width: width,height: height);
 }
 
-num bringToValue(num givenSize,num maxSize){
-  givenSize = givenSize / 1.5;
-  if(givenSize > maxSize)
-    return bringToValue(givenSize, maxSize);
-  else
-  return givenSize ;
+num getRatio(num maxHeight,num maxWidth,num sourceImageHeight,num sourceImageWidth){
+  return Math.min(maxWidth /sourceImageWidth , maxHeight /sourceImageHeight);
 }
